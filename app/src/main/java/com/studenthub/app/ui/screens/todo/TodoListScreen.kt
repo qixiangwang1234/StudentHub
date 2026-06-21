@@ -71,9 +71,9 @@ fun TodoListScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Filter tabs
+            // Filter chips with emoji icons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -87,17 +87,28 @@ fun TodoListScreen(
                         TodoFilter.COURSE -> "课程"
                         TodoFilter.STANDALONE -> "其他"
                     }
+                    val icon = when (f) {
+                        TodoFilter.ALL -> "📋"
+                        TodoFilter.COURSE -> "📚"
+                        TodoFilter.STANDALONE -> "📌"
+                    }
                     FilterChip(
                         selected = isSelected,
                         onClick = { viewModel.setFilter(f) },
-                        label = { Text(label, style = MaterialTheme.typography.labelLarge) }
+                        label = { Text(label, style = MaterialTheme.typography.labelLarge) },
+                        leadingIcon = {
+                            Text(
+                                text = icon,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Todo list
+            // Todo list or empty state
             if (filteredTodos.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -105,17 +116,25 @@ fun TodoListScreen(
                         .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "暂无待办",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "🎉 全部完成！",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "太棒了，没有待办事项了",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(filteredTodos, key = { it.todo.id }) { todoWithCourse ->
                         TodoItem(
@@ -147,44 +166,67 @@ private fun TodoItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .height(IntrinsicSize.Min),
         shape = RoundedCornerShape(14.dp),
+        elevation = if (todo.isCompleted) CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    else CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (todo.isCompleted)
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
             else MaterialTheme.colorScheme.surface
         )
     ) {
-        Row(
-            modifier = Modifier.padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Checkbox
+        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+            // Colored accent bar (red for overdue, green for completed, transparent for normal)
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(
+                        when {
+                            isOverdue -> Color(0xFFEF4444)
+                            todo.isCompleted -> Color(0xFF22C55E)
+                            else -> Color.Transparent
+                        }
+                    )
+            )
+
+            Spacer(modifier = Modifier.width(4.dp))
+
             Checkbox(
                 checked = todo.isCompleted,
                 onCheckedChange = { onToggle() },
                 colors = CheckboxDefaults.colors(
                     checkedColor = MaterialTheme.colorScheme.primary
-                )
+                ),
+                modifier = Modifier.padding(top = 4.dp)
             )
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                // Title
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 8.dp)
+            ) {
+                // Title - smaller and faded for completed items
                 Text(
                     text = todo.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
+                    style = if (todo.isCompleted)
+                        MaterialTheme.typography.bodyMedium
+                    else
+                        MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (todo.isCompleted) FontWeight.Normal else FontWeight.Medium,
                     color = if (todo.isCompleted)
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     else MaterialTheme.colorScheme.onSurface,
                     textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -207,16 +249,26 @@ private fun TodoItem(
                         }
                     }
 
-                    // Due date
-                    Text(
-                        text = "截止 ${dateFormat.format(Date(todo.dueDate))}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = when {
-                            todo.isCompleted -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            isOverdue -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    // Due date with overdue warning
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isOverdue) {
+                            Text(
+                                text = "⚠ ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
-                    )
+                        Text(
+                            text = "截止 ${dateFormat.format(Date(todo.dueDate))}",
+                            style = if (todo.isCompleted) MaterialTheme.typography.labelSmall
+                                    else MaterialTheme.typography.bodySmall,
+                            color = when {
+                                todo.isCompleted -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                isOverdue -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                    }
                 }
             }
         }

@@ -1,23 +1,27 @@
 package com.studenthub.app.ui.screens.profile
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import com.studenthub.app.data.local.AppSettings
-import com.studenthub.app.ai.DeepSeekApi
 import com.studenthub.app.data.local.SettingsDataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -32,197 +36,151 @@ class ProfileViewModel @Inject constructor(
 ) : ViewModel() {
     val settings: StateFlow<AppSettings> = settingsDataStore.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
-
-    private var deepSeekApi: DeepSeekApi? = null
-
-    fun saveApiKey(key: String) {
-        viewModelScope.launch { settingsDataStore.saveApiKey(key) }
-    }
-
-    fun saveApiModel(model: String) {
-        viewModelScope.launch { settingsDataStore.saveApiModel(model) }
-    }
-
-    fun toggleDarkMode(enabled: Boolean) {
-        viewModelScope.launch { settingsDataStore.saveDarkMode(enabled) }
-    }
-
-    fun toggleNotifications(enabled: Boolean) {
-        viewModelScope.launch { settingsDataStore.saveNotificationsEnabled(enabled) }
-    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(navController: NavController? = null) {
     val viewModel: ProfileViewModel = hiltViewModel()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-
-    var apiKey by remember(settings) { mutableStateOf(settings.apiKey) }
-    var showKey by remember { mutableStateOf(false) }
-    var showModelDropdown by remember { mutableStateOf(false) }
-    val models = listOf("deepseek-chat", "deepseek-reasoner")
+    val hasApi = settings.apiKey.isNotBlank()
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp)
+            modifier = Modifier.fillMaxSize().padding(20.dp)
         ) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(text = "我的", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(24.dp))
 
-            // API Configuration Card
+            // ─── User Card ───
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(20.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "🤖 AI 配置",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "配置 DeepSeek API 以使用 AI 功能",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // API Key
-                    Text("API Key", style = MaterialTheme.typography.labelLarge)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    OutlinedTextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        placeholder = { Text("sk-xxxxxxxxxxxxxxxx") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        visualTransformation = if (showKey) VisualTransformation.None
-                            else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            TextButton(onClick = { showKey = !showKey }) {
-                                Text(if (showKey) "隐藏" else "显示")
-                            }
-                        },
-                        singleLine = true
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Model selection
-                    Text("模型", style = MaterialTheme.typography.labelLarge)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ExposedDropdownMenuBox(
-                        expanded = showModelDropdown,
-                        onExpandedChange = { showModelDropdown = it }
+                Row(
+                    modifier = Modifier.padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Avatar
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
                     ) {
-                        OutlinedTextField(
-                            value = settings.apiModel,
-                            onValueChange = {},
-                            readOnly = true,
-                            modifier = Modifier.fillMaxWidth().menuAnchor(),
-                            shape = RoundedCornerShape(12.dp),
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(showModelDropdown) },
-                            singleLine = true
-                        )
-                        ExposedDropdownMenu(
-                            expanded = showModelDropdown,
-                            onDismissRequest = { showModelDropdown = false }
-                        ) {
-                            models.forEach { model ->
-                                DropdownMenuItem(
-                                    text = { Text(model) },
-                                    onClick = {
-                                        viewModel.saveApiModel(model)
-                                        showModelDropdown = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Button(
-                        onClick = { viewModel.saveApiKey(apiKey) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = apiKey != settings.apiKey
-                    ) {
-                        Text("保存配置")
-                    }
-
-                    if (settings.apiKey.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "✅ API 已配置",
+                            text = "U",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "StudentHub 用户",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = if (hasApi) "🤖 AI 已配置" else "⚙️ 前往设置配置 AI",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Dark mode toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("深色模式", style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                "跟随系统设置",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = settings.darkMode,
-                            onCheckedChange = viewModel::toggleDarkMode
+                            color = if (hasApi) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // About Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+            // ─── Menu List ───
+            Text(
+                text = "设置",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            SettingsMenuItem(
+                icon = Icons.Default.Settings,
+                title = "应用设置",
+                subtitle = "API 配置、外观、通知",
+                onClick = { navController?.navigate("settings") }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ─── About ───
+            Text(
+                text = "其他",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            SettingsMenuItem(
+                icon = Icons.Default.Info,
+                title = "关于 StudentHub",
+                subtitle = "v1.0.0 · 完全离线 · 学生智能助手",
+                onClick = {}
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsMenuItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "关于",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("StudentHub v1.0.0", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        text = "完全离线的学生智能助手",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "数据仅存储在本机，无需注册账号",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(22.dp)
+                )
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }

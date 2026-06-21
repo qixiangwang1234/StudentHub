@@ -1,14 +1,18 @@
 package com.studenthub.app.ui.screens.schedule
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -17,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
@@ -27,12 +30,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
-import com.studenthub.app.domain.repository.CourseRepository
-import com.studenthub.app.domain.repository.GradeItemRepository
-import com.studenthub.app.domain.repository.TodoRepository
 import com.studenthub.app.data.entity.CourseEntity
 import com.studenthub.app.data.entity.GradeItemEntity
 import com.studenthub.app.data.entity.TodoEntity
+import com.studenthub.app.domain.repository.CourseRepository
+import com.studenthub.app.domain.repository.GradeItemRepository
+import com.studenthub.app.domain.repository.TodoRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -105,12 +108,6 @@ class CourseDetailViewModel @Inject constructor(
         }
     }
 
-    fun updateGradeScore(item: GradeItemEntity, score: Float) {
-        viewModelScope.launch {
-            gradeItemRepository.updateGradeItem(item.copy(score = score))
-        }
-    }
-
     fun loadCourse(courseId: Long) {
         viewModelScope.launch {
             courseRepository.getCourseByIdFlow(courseId).collect { entity ->
@@ -119,13 +116,8 @@ class CourseDetailViewModel @Inject constructor(
         }
     }
 
-    fun showDeleteDialog() {
-        _showDeleteConfirm.value = true
-    }
-
-    fun dismissDeleteDialog() {
-        _showDeleteConfirm.value = false
-    }
+    fun showDeleteDialog() { _showDeleteConfirm.value = true }
+    fun dismissDeleteDialog() { _showDeleteConfirm.value = false }
 
     fun deleteCourse(onSuccess: () -> Unit) {
         viewModelScope.launch {
@@ -145,11 +137,9 @@ fun CourseDetailScreen(
     val course by viewModel.course.collectAsStateWithLifecycle()
     val showDeleteConfirm by viewModel.showDeleteConfirm.collectAsStateWithLifecycle()
 
-    LaunchedEffect(courseId) {
-        viewModel.loadCourse(courseId)
-    }
+    LaunchedEffect(courseId) { viewModel.loadCourse(courseId) }
 
-    // Delete confirmation dialog
+    // Delete confirmation
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = viewModel::dismissDeleteDialog,
@@ -159,14 +149,10 @@ fun CourseDetailScreen(
                 TextButton(
                     onClick = { viewModel.deleteCourse(onSuccess = { navController.popBackStack() }) },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("删除")
-                }
+                ) { Text("删除") }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::dismissDeleteDialog) {
-                    Text("取消")
-                }
+                TextButton(onClick = viewModel::dismissDeleteDialog) { Text("取消") }
             }
         )
     }
@@ -182,17 +168,15 @@ fun CourseDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
-                actions = {
-                    if (course != null) {
-                        IconButton(onClick = { navController.navigate("edit_course/${courseId}") }) {
-                            Icon(Icons.Default.Edit, contentDescription = "编辑")
-                        }
-                        IconButton(onClick = viewModel::showDeleteDialog) {
-                            Icon(Icons.Default.Delete, contentDescription = "删除",
-                                tint = MaterialTheme.colorScheme.error)
-                        }
+                actions = course?.let { {
+                    IconButton(onClick = { navController.navigate("edit_course/${courseId}") }) {
+                        Icon(Icons.Default.Edit, contentDescription = "编辑课程")
                     }
-                }
+                    IconButton(onClick = viewModel::showDeleteDialog) {
+                        Icon(Icons.Default.Delete, contentDescription = "删除",
+                            tint = MaterialTheme.colorScheme.error)
+                    }
+                } }
             )
         }
     ) { innerPadding ->
@@ -206,244 +190,373 @@ fun CourseDetailScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(20.dp)
             ) {
-                // Course info banner
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = courseColor.copy(alpha = 0.08f))
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = c.name,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = courseColor
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
+                // ─── Course Banner ───
+                CourseBanner(c = c, dayNames = dayNames, courseColor = courseColor)
 
-                        if (!c.teacher.isNullOrBlank() || !c.classroom.isNullOrBlank()) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 8.dp),
-                                color = courseColor.copy(alpha = 0.15f)
-                            )
-                        }
+                Spacer(modifier = Modifier.height(20.dp))
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                // ─── Grade Section ───
+                GradeSection(courseId = courseId, viewModel = viewModel)
 
-                        // Info grid
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (!c.teacher.isNullOrBlank()) {
-                                InfoRow(label = "👨‍🏫 教师", value = c.teacher)
-                            }
-                            if (!c.classroom.isNullOrBlank()) {
-                                InfoRow(label = "🏫 教室", value = c.classroom)
-                            }
-                            InfoRow(label = "⏰ 时间", value = "${dayNames[c.dayOfWeek - 1]} ${c.startTime}—${c.endTime}")
-                            InfoRow(label = "📅 周数", value = "第${c.weekStart}—${c.weekEnd}周")
-                        }
-                    }
-                }
+                Spacer(modifier = Modifier.height(20.dp))
 
-                Spacer(modifier = Modifier.height(24.dp))
+                // ─── Notes ───
+                NotesSection(c = c)
 
-                // Grade Section
-                val gradeItems by viewModel.gradeItems.collectAsStateWithLifecycle()
-                val showGradeDialog by viewModel.showGradeDialog.collectAsStateWithLifecycle()
-                val editingGradeItem by viewModel.editingGradeItem.collectAsStateWithLifecycle()
-
-                // Grade add/edit dialog
-                if (showGradeDialog) {
-                    GradeItemDialog(
-                        item = editingGradeItem,
-                        onDismiss = viewModel::dismissGradeDialog,
-                        onSave = viewModel::saveGradeItem
-                    )
-                }
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        // Header row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "📊 成绩构成",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TextButton(onClick = viewModel::showAddGradeDialog) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = "添加",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("添加")
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        if (gradeItems.isEmpty()) {
-                            Text(
-                                text = "暂未设置成绩项目",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        } else {
-                            gradeItems.forEach { item ->
-                                GradeItemRow(
-                                    item = item,
-                                    onEdit = { viewModel.showEditGradeDialog(it) },
-                                    onDelete = { viewModel.deleteGradeItem(it) }
-                                )
-                            }
-                        }
-
-                        // Weighted total calculation
-                        val weightedTotal = remember(gradeItems) {
-                            val scored = gradeItems.filter { it.score != null }
-                            if (scored.isEmpty()) null
-                            else {
-                                val totalWeight = scored.sumOf { it.weight.toDouble() }.toFloat()
-                                if (totalWeight == 0f) null
-                                else {
-                                    val weightedSum = scored.sumOf {
-                                        (it.score!! / it.totalScore * it.weight).toDouble()
-                                    }.toFloat()
-                                    (weightedSum / totalWeight) * 100
-                                }
-                            }
-                        }
-
-                        if (weightedTotal != null) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider()
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "当前加权总分",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = String.format("%.1f%%", weightedTotal),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (weightedTotal >= 60f) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.error
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LinearProgressIndicator(
-                                progress = { (weightedTotal / 100f).coerceIn(0f, 1f) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .clip(RoundedCornerShape(4.dp)),
-                                color = if (weightedTotal >= 60f) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.error,
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Notes Section (placeholder for Phase 3)
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = "📝 备注",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (!c.notes.isNullOrBlank()) {
-                            Text(
-                                text = c.notes,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        } else {
-                            Text(
-                                text = "暂无备注",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                // Related todos section
+                // ─── Related Todos ───
                 val courseTodos by viewModel.courseTodos.collectAsState()
                 if (courseTodos.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Text(
-                                text = "📋 关联待办",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            courseTodos.forEach { todo ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = if (todo.isCompleted) "✅" else "⬜",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = todo.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else TextDecoration.None
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(20.dp))
+                    RelatedTodosSection(todos = courseTodos)
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
         } ?: run {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         }
     }
 }
+
+// ═══════════════════════════════════════
+//  Course Banner
+// ═══════════════════════════════════════
+
+@Composable
+private fun CourseBanner(c: CourseEntity, dayNames: List<String>, courseColor: Color) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = courseColor.copy(alpha = 0.08f))
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = c.name,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = courseColor
+            )
+            if (!c.teacher.isNullOrBlank() || !c.classroom.isNullOrBlank()) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 10.dp),
+                    color = courseColor.copy(alpha = 0.12f)
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (!c.teacher.isNullOrBlank())
+                    InfoRow(label = "👨‍🏫 教师", value = c.teacher)
+                if (!c.classroom.isNullOrBlank())
+                    InfoRow(label = "🏫 教室", value = c.classroom)
+                InfoRow(label = "⏰ 时间", value = "${dayNames[c.dayOfWeek - 1]} ${c.startTime}—${c.endTime}")
+                InfoRow(label = "📅 周数", value = "第${c.weekStart}—${c.weekEnd}周")
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════
+//  Grade Section — clean view/edit toggle
+// ═══════════════════════════════════════
+
+@Composable
+private fun GradeSection(courseId: Long, viewModel: CourseDetailViewModel) {
+    val gradeItems by viewModel.gradeItems.collectAsStateWithLifecycle()
+    val showGradeDialog by viewModel.showGradeDialog.collectAsStateWithLifecycle()
+    val editingGradeItem by viewModel.editingGradeItem.collectAsStateWithLifecycle()
+
+    // Single edit mode toggle
+    var isEditing by remember { mutableStateOf(false) }
+
+    // Grade dialog
+    if (showGradeDialog) {
+        GradeItemDialog(
+            item = editingGradeItem,
+            onDismiss = viewModel::dismissGradeDialog,
+            onSave = viewModel::saveGradeItem
+        )
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().animateContentSize(tween(300)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+
+            // ── Header ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "📊 成绩构成",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                // Single edit toggle button
+                TextButton(onClick = { isEditing = !isEditing }) {
+                    Text(
+                        if (isEditing) "完成" else "编辑",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Empty or Items ──
+            if (gradeItems.isEmpty() && !isEditing) {
+                Text(
+                    text = "暂未设置成绩项目",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                // Show items — in view mode (clean) or edit mode (with delete)
+                gradeItems.forEach { item ->
+                    GradeItemCard(
+                        item = item,
+                        isEditing = isEditing,
+                        onEdit = { viewModel.showEditGradeDialog(it) },
+                        onDelete = { viewModel.deleteGradeItem(it) }
+                    )
+                }
+
+                // Add button — only shows in edit mode
+                AnimatedVisibility(
+                    visible = isEditing,
+                    enter = fadeIn(tween(200)) + expandVertically(tween(200)),
+                    exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
+                ) {
+                    Box(modifier = Modifier.padding(top = 8.dp)) {
+                        OutlinedButton(
+                            onClick = viewModel::showAddGradeDialog,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("添加成绩项目")
+                        }
+                    }
+                }
+            }
+
+            // ── Weighted Total ──
+            val weightedTotal = remember(gradeItems) {
+                val scored = gradeItems.filter { it.score != null }
+                if (scored.isEmpty()) null
+                else {
+                    val totalWeight = scored.sumOf { it.weight.toDouble() }.toFloat()
+                    if (totalWeight == 0f) null
+                    else {
+                        val ws = scored.sumOf { (it.score!! / it.totalScore * it.weight).toDouble() }.toFloat()
+                        (ws / totalWeight) * 100
+                    }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = weightedTotal != null,
+                enter = fadeIn(tween(300)) + expandVertically(tween(300)),
+                exit = fadeOut(tween(200))
+            ) {
+                weightedTotal?.let { total ->
+                    Column {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider()
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "加权总分",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = String.format("%.1f%%", total),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = if (total >= 60f) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.error
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { (total / 100f).coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                            color = if (total >= 60f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════
+//  Grade Item — clean card (view/edit)
+// ═══════════════════════════════════════
+
+@Composable
+private fun GradeItemCard(
+    item: GradeItemEntity,
+    isEditing: Boolean,
+    onEdit: (GradeItemEntity) -> Unit,
+    onDelete: (GradeItemEntity) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable { if (!isEditing) onEdit(item) },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Item info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "权重 ${item.weight}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (item.score != null) {
+                        Text(
+                            text = "·  ${item.score}/${item.totalScore}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else if (!isEditing) {
+                        Text(
+                            text = "·  待录入",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // In edit mode: show delete button
+            AnimatedVisibility(
+                visible = isEditing,
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(200))
+            ) {
+                IconButton(
+                    onClick = { onDelete(item) },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "删除",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════
+//  Notes
+// ═══════════════════════════════════════
+
+@Composable
+private fun NotesSection(c: CourseEntity) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "📝 备注",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            if (!c.notes.isNullOrBlank()) {
+                Text(
+                    text = c.notes,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            } else {
+                Text(
+                    text = "暂无备注",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════
+//  Related Todos
+// ═══════════════════════════════════════
+
+@Composable
+private fun RelatedTodosSection(todos: List<TodoEntity>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "📋 关联待办",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            todos.forEach { todo ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (todo.isCompleted) "✅" else "⬜",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = todo.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════
+//  Shared components
+// ═══════════════════════════════════════
 
 @Composable
 private fun InfoRow(label: String, value: String) {
@@ -478,125 +591,33 @@ private fun GradeItemDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(
-                if (item != null) "编辑成绩项目" else "添加成绩项目",
-                fontWeight = FontWeight.SemiBold
-            )
+            Text(if (item != null) "编辑成绩项目" else "添加成绩项目", fontWeight = FontWeight.SemiBold)
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("名称") },
-                    placeholder = { Text("例如：作业、期中考试") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = weightText,
-                    onValueChange = { weightText = it.filter { c -> c.isDigit() } },
-                    label = { Text("权重 (%)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = scoreText,
-                    onValueChange = { scoreText = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("得分（可选）") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = totalScoreText,
-                    onValueChange = { totalScoreText = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("满分") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                OutlinedTextField(value = name, onValueChange = { name = it },
+                    label = { Text("名称") }, placeholder = { Text("例如：作业") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = weightText, onValueChange = { weightText = it.filter { c -> c.isDigit() } },
+                    label = { Text("权重 (%)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = scoreText, onValueChange = { scoreText = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("得分（可选）") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = totalScoreText, onValueChange = { totalScoreText = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("满分") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    val weight = weightText.toIntOrNull() ?: return@TextButton
-                    val totalScore = totalScoreText.toFloatOrNull() ?: return@TextButton
-                    val score = scoreText.toFloatOrNull()
-                    if (name.isNotBlank() && weight > 0 && totalScore > 0) {
-                        onSave(name.trim(), weight, score, totalScore)
-                    }
-                }
-            ) {
-                Text("保存")
-            }
+            TextButton(onClick = {
+                val weight = weightText.toIntOrNull() ?: return@TextButton
+                val totalScore = totalScoreText.toFloatOrNull() ?: return@TextButton
+                val score = scoreText.toFloatOrNull()
+                if (name.isNotBlank() && weight > 0 && totalScore > 0)
+                    onSave(name.trim(), weight, score, totalScore)
+            }) { Text("保存") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )
-}
-
-@Composable
-private fun GradeItemRow(
-    item: GradeItemEntity,
-    onEdit: (GradeItemEntity) -> Unit,
-    onDelete: (GradeItemEntity) -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable { onEdit(item) }
-            .padding(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${item.name}  ${item.weight}%",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = if (item.score != null) "${item.score}/${item.totalScore}"
-                           else "待录入",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (item.score != null) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Row {
-                IconButton(
-                    onClick = { onEdit(item) },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "编辑",
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                IconButton(
-                    onClick = { onDelete(item) },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "删除",
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        }
-    }
 }
