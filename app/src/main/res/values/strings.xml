@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">StudentHub</string>
+    <string name="nav_home">首页</string>
+    <string name="nav_schedule">课表</string>
+    <string name="nav_todo">待办</string>
+    <string name="nav_profile">我的</string>
+</resources>
