@@ -2,28 +2,17 @@ package com.studenthub.app.ui.screens.schedule
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
 import androidx.camera.view.LifecycleCameraController
-import androidx.camera.view.compose.ExperimentalCameraXComposeLibrary
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,10 +20,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import java.io.File
-import java.io.FileOutputStream
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +65,6 @@ fun CameraScheduleScreen(
                 .padding(16.dp)
         ) {
             if (!hasCameraPermission) {
-                // Permission request
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -93,7 +77,7 @@ fun CameraScheduleScreen(
                         }
                     }
                 }
-            } else if (uiState.capturedImage == null && uiState.recognizedText == null) {
+            } else if (uiState.capturedImage == null && uiState.recognizedText == null && !uiState.isAiParsing) {
                 // Camera preview
                 CameraPreview(
                     viewModel = viewModel,
@@ -109,7 +93,7 @@ fun CameraScheduleScreen(
                 ) {
                     Text("📸 拍照识别", style = MaterialTheme.typography.labelLarge)
                 }
-            } else if (uiState.isProcessing) {
+            } else if (uiState.isProcessing || uiState.isAiParsing) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -117,16 +101,25 @@ fun CameraScheduleScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("正在识别文字...", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            if (uiState.isAiParsing) "AI 正在智能解析课表..." else "正在识别文字...",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
             } else if (uiState.recognizedText != null) {
-                // Show recognized text
                 Text(
-                    text = "识别结果",
+                    text = "📖 识别结果",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "检查识别内容，可手动修正后点击「AI 智能导入」",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedTextField(
@@ -138,12 +131,37 @@ fun CameraScheduleScreen(
                     maxLines = 20
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "检查识别结果，可以手动修正。确认后系统将尝试解析课程信息。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (uiState.aiParseResult.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "✅ AI 解析完成：",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = uiState.aiParseResult,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+
+                if (uiState.error != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = uiState.error!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -159,11 +177,12 @@ fun CameraScheduleScreen(
                         Text("重新拍照")
                     }
                     Button(
-                        onClick = { viewModel.parseAndSave(); navController.popBackStack() },
+                        onClick = { viewModel.parseWithAI() },
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = !uiState.isAiParsing
                     ) {
-                        Text("确认导入")
+                        Text("🤖 AI 智能导入")
                     }
                 }
             }
