@@ -73,6 +73,18 @@ dependencies {
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
 
+    // OkHttp
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.sse)
+
+    // CameraX
+    implementation(libs.camerax.core)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.camerax.view)
+
+    // ML Kit
+    implementation(libs.mlkit.text.recognition)
+
     // DataStore
     implementation(libs.datastore.preferences)
 

@@ -160,7 +160,7 @@ fun ScheduleScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     OutlinedButton(
-                        onClick = { /* Camera recognition in Phase 4 */ },
+                        onClick = { navController.navigate("camera_schedule") },
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(

@@ -34,3 +34,15 @@ val CourseColors = listOf(
     Color(0xFF8B5CF6), // Purple
     Color(0xFFF97316), // Orange
 )
+
+// Dark theme
+val DarkPrimary = Color(0xFF818CF8)
+val DarkPrimaryContainer = Color(0xFF312E81)
+val DarkOnPrimaryContainer = Color(0xFFE0E7FF)
+val DarkSecondary = Color(0xFFA78BFA)
+val DarkSecondaryContainer = Color(0xFF3B0764)
+val DarkSurface = Color(0xFF1F2937)
+val DarkSurfaceVariant = Color(0xFF374151)
+val DarkOnSurface = Color(0xFFF9FAFB)
+val DarkOnSurfaceVariant = Color(0xFFD1D5DB)
+val DarkBackground = Color(0xFF111827)

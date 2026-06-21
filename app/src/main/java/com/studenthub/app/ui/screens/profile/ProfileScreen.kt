@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.studenthub.app.data.local.AppSettings
+import com.studenthub.app.ai.DeepSeekApi
 import com.studenthub.app.data.local.SettingsDataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -32,12 +33,22 @@ class ProfileViewModel @Inject constructor(
     val settings: StateFlow<AppSettings> = settingsDataStore.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
 
+    private var deepSeekApi: DeepSeekApi? = null
+
     fun saveApiKey(key: String) {
         viewModelScope.launch { settingsDataStore.saveApiKey(key) }
     }
 
     fun saveApiModel(model: String) {
         viewModelScope.launch { settingsDataStore.saveApiModel(model) }
+    }
+
+    fun toggleDarkMode(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.saveDarkMode(enabled) }
+    }
+
+    fun toggleNotifications(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.saveNotificationsEnabled(enabled) }
     }
 }
 
@@ -153,6 +164,30 @@ fun ProfileScreen() {
                             text = "✅ API 已配置",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Dark mode toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("深色模式", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "跟随系统设置",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = settings.darkMode,
+                            onCheckedChange = viewModel::toggleDarkMode
                         )
                     }
                 }

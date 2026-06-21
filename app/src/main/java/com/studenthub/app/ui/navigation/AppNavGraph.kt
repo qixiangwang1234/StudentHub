@@ -10,8 +10,10 @@ import androidx.navigation.navArgument
 import com.studenthub.app.ui.screens.home.HomeScreen
 import com.studenthub.app.ui.screens.profile.ProfileScreen
 import com.studenthub.app.ui.screens.schedule.AddCourseScreen
+import com.studenthub.app.ui.screens.schedule.CameraScheduleScreen
 import com.studenthub.app.ui.screens.schedule.CourseDetailScreen
 import com.studenthub.app.ui.screens.schedule.ScheduleScreen
+import com.studenthub.app.ui.screens.ai.AiChatScreen
 import com.studenthub.app.ui.screens.todo.AddTodoScreen
 import com.studenthub.app.ui.screens.todo.TodoListScreen
 
@@ -25,7 +27,8 @@ fun AppNavGraph(
         startDestination = "home",
         modifier = modifier
     ) {
-        composable("home") { HomeScreen() }
+        composable("home") { HomeScreen(navController = navController) }
+        composable("ai_chat") { AiChatScreen(navController = navController) }
         composable("schedule") { ScheduleScreen(navController) }
         composable("todo") { TodoListScreen(navController = navController) }
         composable("profile") { ProfileScreen() }
@@ -47,6 +50,8 @@ fun AppNavGraph(
             val courseId = backStackEntry.arguments?.getLong("courseId") ?: return@composable
             CourseDetailScreen(courseId = courseId, navController = navController)
         }
+
+        composable("camera_schedule") { CameraScheduleScreen(navController = navController) }
 
         composable("add_course") { AddCourseScreen(navController = navController) }
 
