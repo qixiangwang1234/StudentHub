@@ -17,6 +17,12 @@ local.properties
 
 # Superpowers
 .superpowers/
+
+# Credential files (DO NOT PUSH)
+gh-cred.sh
+cred.sh
 git-cred.sh
-git-push.sh\npush-helper.sh
-cred.sh\nclean-history.sh\npush-gh.sh\ngit-push.sh\npush-helper.sh
+git-push.sh
+push-helper.sh
+push-gh.sh
+clean-history.sh
