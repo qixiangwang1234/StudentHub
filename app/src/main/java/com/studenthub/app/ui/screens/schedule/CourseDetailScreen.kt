@@ -168,15 +168,17 @@ fun CourseDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
-                actions = course?.let { {
-                    IconButton(onClick = { navController.navigate("edit_course/${courseId}") }) {
-                        Icon(Icons.Default.Edit, contentDescription = "编辑课程")
+                actions = {
+                    if (course != null) {
+                        IconButton(onClick = { navController.navigate("edit_course/${courseId}") }) {
+                            Icon(Icons.Default.Edit, contentDescription = "编辑课程")
+                        }
+                        IconButton(onClick = viewModel::showDeleteDialog) {
+                            Icon(Icons.Default.Delete, contentDescription = "删除",
+                                tint = MaterialTheme.colorScheme.error)
+                        }
                     }
-                    IconButton(onClick = viewModel::showDeleteDialog) {
-                        Icon(Icons.Default.Delete, contentDescription = "删除",
-                            tint = MaterialTheme.colorScheme.error)
-                    }
-                } }
+                }
             )
         }
     ) { innerPadding ->

@@ -1,8 +1,8 @@
 package com.studenthub.app.ui.navigation
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.cubicBezier
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -23,11 +23,11 @@ import com.studenthub.app.ui.screens.todo.TodoListScreen
 
 // Shared transition: sliding from right, fading
 private val slideIn = slideInHorizontally(
-    animationSpec = tween(280, easing = EaseOutCubic)
+    animationSpec = tween(280, easing = FastOutSlowInEasing)
 ) { it / 8 } + fadeIn(tween(280))
 
 private val slideOut = slideOutHorizontally(
-    animationSpec = tween(200, easing = EaseInCubic)
+    animationSpec = tween(200, easing = LinearOutSlowInEasing)
 ) { it / 4 } + fadeOut(tween(200))
 
 // For bottom tabs — instant, no slide
@@ -153,6 +153,3 @@ fun AppNavGraph(
         }
     }
 }
-
-private val EaseOutCubic = androidx.compose.animation.core.cubicBezier(0.33, 1.0, 0.68, 1.0)
-private val EaseInCubic = androidx.compose.animation.core.cubicBezier(0.32, 0.0, 0.67, 0.0)

@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
+import com.google.android.gms.tasks.Tasks
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.studenthub.app.ai.DeepSeekApi
@@ -130,7 +131,7 @@ class CameraScheduleViewModel @Inject constructor(
                 )
 
                 val result = withContext(Dispatchers.IO) {
-                    recognizer.process(inputImage)
+                    Tasks.await(recognizer.process(inputImage))
                 }
 
                 val text: String = result.text
