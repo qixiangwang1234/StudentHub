@@ -19,3 +19,4 @@ local.properties
 .superpowers/
 git-cred.sh
 git-push.sh\npush-helper.sh
+cred.sh\nclean-history.sh\npush-gh.sh\ngit-push.sh\npush-helper.sh
